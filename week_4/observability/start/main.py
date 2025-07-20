@@ -1,12 +1,15 @@
 import os
 import glob
-import openai
+
 from pinecone import Pinecone
 from typing import List
 from langsmith import Client, traceable
+from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 
-# Initialize OpenAI and Pinecone clients
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+# from langchain_community.callbacks import get_openai_callback
+
+# Initialize Pinecone clients
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
 # LangSmith client setup
@@ -63,11 +66,11 @@ def chunk_documents(documents, chunk_size=1000, chunk_overlap=200):
 @traceable(name="get_embeddings")
 def get_embeddings(texts: List[str]):
     """Generate embeddings for a list of texts using OpenAI."""
-    response = openai.embeddings.create(
-        input=texts,
+    embeddings = OpenAIEmbeddings(
         model=EMBEDDING_MODEL
     )
-    return [embedding.embedding for embedding in response.data]
+    response = embeddings.embed_documents(texts)
+    return response
 
 
 @traceable(name="embed_documents")
@@ -147,13 +150,12 @@ def ask_openai(query, documents):
         {"role": "system", "content": f"Documents: {context}"},
         {"role": "user", "content": query}
     ]
+    llm = ChatOpenAI(model=CHAT_MODEL)
 
-    response = openai.chat.completions.create(
-        model=CHAT_MODEL,
-        messages=messages
+    response = llm.invoke(
+        messages
     )
-
-    return response.choices[0].message.content
+    return response.content
 
 
 if __name__ == "__main__":
