@@ -10,11 +10,13 @@ Each step includes human verification and modification options.
 """
 
 import json
+from pprint import pprint
 from typing import Dict, Optional, List
 from dataclasses import dataclass
 from openai import OpenAI
 import os
 from pydantic import BaseModel, Field
+
 
 @dataclass
 class TripPlan:
@@ -24,6 +26,7 @@ class TripPlan:
     flight_info: Dict
     itinerary: Dict
 
+
 class FlightInfo(BaseModel):
     """Model for flight information."""
     flight_number: str = Field(description="Flight number")
@@ -31,9 +34,11 @@ class FlightInfo(BaseModel):
     arrival_time: str = Field(description="Arrival time in HH:MM format")
     airline: str = Field(description="Name of the airline")
 
+
 class Itinerary(BaseModel):
     """Model for daily itinerary."""
     daily_activities: List[List[str]] = Field(description="List of activities for each day of the trip")
+
 
 class TripPlanner:
     def __init__(self):
@@ -44,6 +49,7 @@ class TripPlanner:
         """Use LLM to suggest a travel destination."""
         prompt = """Suggest an interesting travel destination. 
         Consider factors like weather, tourist attractions, and cultural experiences.
+        It should not be Kyoto.
         Return only the destination name, nothing else."""
 
         try:
@@ -119,37 +125,52 @@ class TripPlanner:
         """Run the complete trip planning process."""
         print("\n=== Welcome to the Trip Planner! ===\n")
 
-        ## TODO Decide which steps would benefit from a human-in-the-loop experience.
+        # TODO Decide which steps would benefit from a human-in-the-loop experience.
         # Use get_human_confirmation to stop the flow and ask the human a question.
 
         # Step 1: Destination Selection
         suggested_destination = self.suggest_destination()
         print(f"\nSuggested destination: {suggested_destination}")
-        
+
         # Example
         if self.get_human_confirmation("Would you like to use this destination?"):
             destination = suggested_destination
         else:
             destination = input("Enter your preferred destination: ").strip()
-        
+
         # Step 2: Flight Selection
         departure_city = input("\nEnter your departure city: ").strip()
         suggested_flight = self.suggest_flight(departure_city, destination)
-        
+
         print("\nSuggested flight:")
         print(f"Airline: {suggested_flight.airline}")
         print(f"Flight: {suggested_flight.flight_number}")
         print(f"Departure: {suggested_flight.departure_time}")
         print(f"Arrival: {suggested_flight.arrival_time}")
-        
+
+        if not self.get_human_confirmation("Would you like us to book this flight?"):
+            print("Please book your own flight!\n")
+            suggested_flight = {
+                "flight_number": "Unknown",
+                "departure_time": "Unknown",
+                "arrival_time": "Unknown",
+                "airline": "Unknown"
+            }
+
         # Step 3: Itinerary Generation
         suggested_itinerary = self.generate_itinerary(destination)
-        
         print("\nSuggested itinerary:")
         for index, activities in enumerate(suggested_itinerary.daily_activities, 1):
             print(f"\nDAY {index + 1}:")
             for activity in activities:
                 print(f"- {activity}")
+
+        if not self.get_human_confirmation("Would you like us to confirm those activities?"):
+            suggested_itinerary.daily_activities = [
+                ["Custom activities day 1"],
+                ["Custom activities day 2"],
+                ["Custom activities day 3"],
+            ]
 
         # Save the complete trip plan
         self.trip_plan = TripPlan(
@@ -174,9 +195,11 @@ class TripPlanner:
             for activity in activities:
                 print(f"- {activity}")
 
+
 def main():
     planner = TripPlanner()
     planner.plan_trip()
 
+
 if __name__ == "__main__":
-    main() 
+    main()
